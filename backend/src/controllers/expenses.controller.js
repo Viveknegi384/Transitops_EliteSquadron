@@ -2,7 +2,7 @@ const db = require('../config/db');
 
 exports.getExpenses = async (req, res, next) => {
     try {
-        const fuel = await db.query(`SELECT f.*, v.reg_number FROM fuel_logs f JOIN vehicles v ON f.vehicle_id = v.id ORDER BY f.date DESC`);
+        const fuel = await db.query(`SELECT f.*, v.reg_number, d.name AS driver_name, CONCAT(t.source, ' → ', t.destination) AS route FROM fuel_logs f JOIN vehicles v ON f.vehicle_id = v.id LEFT JOIN trips t ON f.trip_id = t.id LEFT JOIN drivers d ON t.driver_id = d.id ORDER BY f.date DESC`);
         const general = await db.query(`SELECT e.*, v.reg_number FROM expenses e JOIN vehicles v ON e.vehicle_id = v.id ORDER BY e.date DESC`);
         res.json({ fuel_logs: fuel.rows, expenses: general.rows });
     } catch (err) { next(err); }

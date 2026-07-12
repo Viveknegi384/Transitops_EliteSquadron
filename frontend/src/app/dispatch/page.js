@@ -46,7 +46,33 @@ function StageIcon({ stage, isActive }) {
   );
 }
 
-function LiveTripCard({ trip }) {
+function CompleteModal({ onClose, onSubmit }) {
+  const [dist, setDist] = useState('');
+  const [fuel, setFuel] = useState('');
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', zIndex:999, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
+      <div style={{ background:'#0d1526', border:'1px solid rgba(255,255,255,0.1)', borderRadius:14, padding:24, width:'100%', maxWidth:360 }}>
+        <h3 style={{ fontSize:16, fontWeight:700, color:'#fff', marginBottom:16 }}>Mark Trip Complete</h3>
+        <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+          <div>
+            <label style={{ fontSize:11, color:'#90a1b9', display:'block', marginBottom:4 }}>Ending Odometer (km)</label>
+            <input type="number" className="input-field" style={{ width:'100%', padding:10, borderRadius:8, background:'#1a2640', border:'1px solid rgba(255,255,255,0.07)' }} value={dist} onChange={e=>setDist(e.target.value)} />
+          </div>
+          <div>
+            <label style={{ fontSize:11, color:'#90a1b9', display:'block', marginBottom:4 }}>Fuel Used (Liters)</label>
+            <input type="number" className="input-field" style={{ width:'100%', padding:10, borderRadius:8, background:'#1a2640', border:'1px solid rgba(255,255,255,0.07)' }} value={fuel} onChange={e=>setFuel(e.target.value)} />
+          </div>
+          <div style={{ display:'flex', gap:8, marginTop:8 }}>
+            <button onClick={onClose} style={{ flex:1, padding:10, borderRadius:8, background:'rgba(255,255,255,0.05)', color:'#fff', border:'none' }}>Cancel</button>
+            <button onClick={() => onSubmit(dist, fuel)} disabled={!dist||!fuel} style={{ flex:1, padding:10, borderRadius:8, background:'#10b981', color:'#fff', border:'none', opacity: (!dist||!fuel)?0.5:1 }}>Complete</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LiveTripCard({ trip, onCancel, onComplete }) {
   const statusMap = {
     'Dispatched': { color: '#3b82f6', bg: 'rgba(59,130,246,0.15)', border: 'rgba(59,130,246,0.4)', label: 'Dispatched' },
     'On Trip':    { color: '#10b981', bg: 'rgba(16,185,129,0.15)', border: 'rgba(16,185,129,0.4)',  label: 'On Trip'    },
@@ -55,7 +81,7 @@ function LiveTripCard({ trip }) {
     'Completed':  { color: '#10b981', bg: 'rgba(16,185,129,0.15)', border: 'rgba(16,185,129,0.4)',  label: 'Completed'  },
   };
   const s = statusMap[trip.status] || statusMap['Draft'];
-  const isOnTrip = trip.status === 'On Trip';
+  const isOnTrip = trip.status === 'On Trip' || trip.status === 'Dispatched';
 
   return (
     <div style={{
@@ -89,9 +115,17 @@ function LiveTripCard({ trip }) {
              trip.eta ? `+ ${trip.eta} min` : ''}
           </div>
         </div>
-        <span style={{ padding: '3px 10px', borderRadius: 99, fontSize: 12, fontWeight: 600, background: s.bg, color: s.color, border: `1px solid ${s.border}`, flexShrink: 0 }}>
-          {s.label}
-        </span>
+        <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:8 }}>
+          <span style={{ padding: '3px 10px', borderRadius: 99, fontSize: 12, fontWeight: 600, background: s.bg, color: s.color, border: `1px solid ${s.border}`, flexShrink: 0 }}>
+            {s.label}
+          </span>
+          {isOnTrip && (
+            <div style={{ display:'flex', gap:6 }}>
+              <button onClick={() => onComplete(trip.id)} style={{ background:'rgba(16,185,129,0.1)', color:'#10b981', border:'1px solid rgba(16,185,129,0.2)', padding:'4px 8px', borderRadius:6, fontSize:10, cursor:'pointer' }}>Done</button>
+              <button onClick={() => onCancel(trip.id)} style={{ background:'rgba(239,68,68,0.1)', color:'#ef4444', border:'1px solid rgba(239,68,68,0.2)', padding:'4px 8px', borderRadius:6, fontSize:10, cursor:'pointer' }}>Cancel</button>
+            </div>
+          )}
+        </div>
       </div>
       {/* Progress bar for active trips */}
       {isOnTrip && (
@@ -123,6 +157,7 @@ export default function DispatchPage() {
   const [dispatching, setDispatching] = useState(false);
   const [dispatchError, setDispatchError] = useState('');
   const [dispatchSuccess, setDispatchSuccess] = useState('');
+  const [completingId, setCompletingId] = useState(null);
 
   const fetchAll = useCallback(async () => {
     try {
@@ -161,7 +196,7 @@ export default function DispatchPage() {
     try {
       const res = await apiCall('/trips/validate', {
         method: 'POST',
-        body: JSON.stringify({ vehicle_id: parseInt(form.vehicle_id), driver_id: parseInt(form.driver_id), cargo_weight: parseFloat(form.cargo_weight) }),
+        body: JSON.stringify({ vehicle_id: form.vehicle_id, driver_id: form.driver_id, cargo_weight: parseFloat(form.cargo_weight) }),
       });
       setValidation({ ok: true, message: res.message });
     } catch (err) {
@@ -189,7 +224,7 @@ export default function DispatchPage() {
         method: 'POST',
         body: JSON.stringify({
           source: form.source, destination: form.destination,
-          vehicle_id: parseInt(form.vehicle_id), driver_id: parseInt(form.driver_id),
+          vehicle_id: form.vehicle_id, driver_id: form.driver_id,
           cargo_weight: parseFloat(form.cargo_weight), planned_distance: parseFloat(form.planned_distance),
         }),
       });
@@ -213,9 +248,10 @@ export default function DispatchPage() {
     }
   };
 
-  const handleComplete = async (id) => {
+  const handleComplete = async (dist, fuel) => {
     try {
-      await apiCall(`/trips/${id}/complete`, { method: 'POST', body: JSON.stringify({ actual_distance: 50, fuel_used: 10 }) });
+      await apiCall(`/trips/${completingId}/complete`, { method: 'POST', body: JSON.stringify({ final_odometer: parseFloat(dist), fuel_consumed: parseFloat(fuel), fuel_cost: parseFloat(fuel) * 90 }) });
+      setCompletingId(null);
       fetchAll();
     } catch (err) {
       console.error(err);
@@ -406,7 +442,7 @@ export default function DispatchPage() {
               ) : (
                 <div>
                   {trips.slice(0, 8).map(trip => (
-                    <LiveTripCard key={trip.id} trip={trip} />
+                    <LiveTripCard key={trip.id} trip={trip} onCancel={handleCancel} onComplete={id => setCompletingId(id)} />
                   ))}
                   {trips.length === 0 && (
                     <div style={{ textAlign: 'center', color: '#45556c', padding: '40px 0', fontSize: 14 }}>No trips yet — create the first dispatch!</div>
@@ -432,6 +468,7 @@ export default function DispatchPage() {
           </div>
         </div>
       </div>
+      {completingId && <CompleteModal onClose={() => setCompletingId(null)} onSubmit={handleComplete} />}
       <AICopilot />
     </div>
   );

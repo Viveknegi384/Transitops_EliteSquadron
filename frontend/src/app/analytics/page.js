@@ -57,7 +57,6 @@ function CostBar({ name, cost, max, color }) {
 }
 
 const COST_COLORS = ['#ef4444','#f59e0b','#3b82f6','#10b981','#8b5cf6'];
-const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 export default function AnalyticsPage() {
   const router = useRouter();
@@ -89,11 +88,13 @@ export default function AnalyticsPage() {
   const totalOpCost  = monthlyCosts.reduce((s, v) => s + (parseFloat(v.total_operational_cost) || 0), 0);
   const totalFuel    = monthlyCosts.reduce((s, v) => s + (parseFloat(v.total_fuel_cost) || 0), 0);
   const totalMaint   = monthlyCosts.reduce((s, v) => s + (parseFloat(v.total_maintenance_cost) || 0), 0);
-  const avgROI       = reports?.roi_analysis?.length
-    ? (reports.roi_analysis.reduce((s, v) => s + (parseFloat(v.roi) || 0), 0) / reports.roi_analysis.length).toFixed(1)
-    : '—';
+  const rawAvgROI    = reports?.roi_analysis?.length
+    ? (reports.roi_analysis.reduce((s, v) => s + (parseFloat(v.roi) || 0), 0) / reports.roi_analysis.length)
+    : null;
+  const avgROI       = rawAvgROI !== null ? (Math.abs(rawAvgROI) < 0.05 ? '0.0' : rawAvgROI.toFixed(1)) : '—';
+  
   const utilization  = kpis?.utilization ?? '—';
-  const fuelEff      = (kpis?.activeVehicles && totalFuel) ? (totalFuel / (kpis.activeVehicles * 100)).toFixed(1) : '8.4';
+  const fuelEff      = kpis?.fuelEfficiency ?? '0.0';
 
   // Top costliest vehicles (sorted)
   const topVehicles = [...monthlyCosts]
@@ -101,17 +102,16 @@ export default function AnalyticsPage() {
     .slice(0, 5);
   const maxCost = topVehicles[0]?.total_operational_cost || 1;
 
-  // Monthly bar chart data (simulate from total cost spread across months)
-  const currentMonth = new Date().getMonth();
+  // Revenue by Vehicle chart data
+  const vehicleNames = reports?.roi_analysis?.map(v => v.reg_number) || [];
+  const vehicleRevenues = reports?.roi_analysis?.map(v => parseFloat(v.total_revenue) || 0) || [];
+
   const barData = {
-    labels: MONTHS,
+    labels: vehicleNames.length ? vehicleNames : ['No Data'],
     datasets: [{
       label: 'Revenue (₹)',
-      data: MONTHS.map((_, i) => {
-        const factor = i <= currentMonth ? (0.7 + Math.random() * 0.5) : 0;
-        return Math.round((totalOpCost / (currentMonth + 1)) * factor);
-      }),
-      backgroundColor: MONTHS.map((_, i) => i <= currentMonth ? 'rgba(59,130,246,0.7)' : 'rgba(59,130,246,0.15)'),
+      data: vehicleRevenues.length ? vehicleRevenues : [0],
+      backgroundColor: 'rgba(59,130,246,0.7)',
       borderRadius: 6,
       borderSkipped: false,
     }],
@@ -189,7 +189,7 @@ export default function AnalyticsPage() {
             <div className="section-card" style={{ padding:20 }}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
                 <div>
-                  <div style={{ fontSize:15, fontWeight:700, color:'#fff' }}>Monthly Revenue</div>
+                  <div style={{ fontSize:15, fontWeight:700, color:'#fff' }}>Revenue by Vehicle</div>
                   <div style={{ fontSize:11, color:'#62748e', marginTop:2 }}>FY 2026 — All vehicles</div>
                 </div>
                 <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:11, color:'#3b82f6' }}>

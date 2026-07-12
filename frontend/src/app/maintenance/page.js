@@ -92,7 +92,7 @@ export default function MaintenancePage() {
       await apiCall('/maintenance', {
         method: 'POST',
         body: JSON.stringify({
-          vehicle_id: parseInt(form.vehicle_id),
+          vehicle_id: form.vehicle_id,
           issue: form.issue,
           cost: parseFloat(form.cost) || 0,
           scheduled_date: form.scheduled_date || new Date().toISOString().split('T')[0],

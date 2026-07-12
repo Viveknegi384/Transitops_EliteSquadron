@@ -15,7 +15,11 @@ exports.getDashboardKpis = async (req, res, next) => {
         });
 
         const utilization = totalVehicles > 0 ? Math.round((activeVehicles / totalVehicles) * 100) : 0;
-        res.json({ totalVehicles, activeVehicles, availableVehicles, inShop, utilization, trips: trips.rows, drivers: drivers.rows });
+        const fuelQuery = await db.query("SELECT COALESCE(SUM(planned_distance), 0) as dist, COALESCE(SUM(fuel_consumed), 0) as fuel FROM trips WHERE status = 'Completed' AND fuel_consumed > 0");
+        const dist = parseFloat(fuelQuery.rows[0].dist);
+        const fuel = parseFloat(fuelQuery.rows[0].fuel);
+        const fuelEfficiency = fuel > 0 ? (dist / fuel).toFixed(1) : '0.0';
+        res.json({ totalVehicles, activeVehicles, availableVehicles, inShop, utilization, trips: trips.rows, drivers: drivers.rows, fuelEfficiency });
     } catch (err) { next(err); }
 };
 

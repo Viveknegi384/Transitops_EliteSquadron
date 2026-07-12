@@ -17,7 +17,7 @@ function FuelModal({ vehicles, onClose, onSave }) {
     e.preventDefault(); setError('');
     setSaving(true);
     try {
-      await apiCall('/expenses/fuel', { method: 'POST', body: JSON.stringify({ vehicle_id: parseInt(form.vehicle_id), liters: parseFloat(form.liters), cost: parseFloat(form.cost), date: form.date }) });
+      await apiCall('/expenses/fuel', { method: 'POST', body: JSON.stringify({ vehicle_id: form.vehicle_id, liters: parseFloat(form.liters), cost: parseFloat(form.cost), date: form.date }) });
       onSave();
     } catch (err) { setError(err.message); } finally { setSaving(false); }
   };
@@ -71,7 +71,7 @@ function ExpenseModal({ vehicles, onClose, onSave }) {
     e.preventDefault(); setError('');
     setSaving(true);
     try {
-      await apiCall('/expenses/general', { method: 'POST', body: JSON.stringify({ vehicle_id: parseInt(form.vehicle_id), type: form.type, cost: parseFloat(form.cost), date: form.date, description: form.description }) });
+      await apiCall('/expenses/general', { method: 'POST', body: JSON.stringify({ vehicle_id: form.vehicle_id, type: form.type, cost: parseFloat(form.cost), date: form.date, description: form.description }) });
       onSave();
     } catch (err) { setError(err.message); } finally { setSaving(false); }
   };
